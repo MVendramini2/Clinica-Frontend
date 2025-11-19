@@ -1,8 +1,13 @@
+import React, { useState, useEffect } from "react";
 import { Button } from "../components/Button";
 import { MoveLeft, User, Phone, Mail, Shield, Calendar } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
 import { Banner } from "../components/Banner";
+
+type ObraSocial = {
+  id: number;
+  nombre: string;
+};
 
 export default function ReservaForm() {
   const navigate = useNavigate();
@@ -12,17 +17,48 @@ export default function ReservaForm() {
     apellido: "",
     email: "",
     telefono: "",
-    obraSocial: "",
+    obraSocialId: "", // ID de la obra social (string para el select, luego lo convertimos a number)
   });
 
+  const [obras, setObras] = useState<ObraSocial[]>([]);
+  const [loadingObras, setLoadingObras] = useState(false);
+
+  const [loadingSubmit, setLoadingSubmit] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Validaciones
   const errors = {
     nombre: form.nombre.trim().length < 2,
     apellido: form.apellido.trim().length < 2,
     telefono: !/^\+?\d[\d\s\-()]{8,}$/.test(form.telefono.trim()),
     email: !/^\S+@\S+\.\S+$/.test(form.email.trim()),
-    obraSocial: form.obraSocial === "",
+    obraSocialId: form.obraSocialId === "",
   };
   const isValid = Object.values(errors).every((e) => e === false);
+
+  // Cargar obras sociales reales desde el backend
+  useEffect(() => {
+    const fetchObras = async () => {
+      try {
+        setLoadingObras(true);
+        const res = await fetch("http://localhost:3001/api/obras-sociales");
+        const data = await res.json();
+
+        if (!res.ok) {
+          console.error("Error al obtener obras sociales:", data);
+          return;
+        }
+
+        setObras(data);
+      } catch (err) {
+        console.error("Error de conexión al cargar obras sociales:", err);
+      } finally {
+        setLoadingObras(false);
+      }
+    };
+
+    fetchObras();
+  }, []);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -31,10 +67,47 @@ export default function ReservaForm() {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+
     if (!isValid) return;
-    navigate("/reservar-fecha");
+
+    setLoadingSubmit(true);
+
+    try {
+      const res = await fetch("http://localhost:3001/api/pacientes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombre: form.nombre,
+          apellido: form.apellido,
+          email: form.email,
+          telefono: form.telefono,
+          obraSocialId: Number(form.obraSocialId),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.error("Error al crear paciente:", data);
+        setError(data.message || "No se pudo registrar al paciente");
+        return;
+      }
+
+      const pacienteId = data.id;
+
+      // Pasamos al Paso 2 con el pacienteId
+      navigate("/reservar-fecha", {
+        state: { pacienteId },
+      });
+    } catch (err) {
+      console.error(err);
+      setError("Error de conexión con el servidor");
+    } finally {
+      setLoadingSubmit(false);
+    }
   };
 
   return (
@@ -193,40 +266,53 @@ export default function ReservaForm() {
             </label>
             <div
               className={`flex items-center gap-2 rounded-md border px-2.5 py-2 bg-gray-50 focus-within:bg-white ${
-                errors.obraSocial
+                errors.obraSocialId
                   ? "border-red-300 focus-within:border-red-400"
                   : "border-gray-300 focus-within:border-blue-400"
               }`}
             >
               <Shield className="w-3.5 h-3.5 text-gray-500" />
               <select
-                name="obraSocial"
-                value={form.obraSocial}
+                name="obraSocialId"
+                value={form.obraSocialId}
                 onChange={handleChange}
                 className="w-full bg-transparent outline-none text-gray-900 text-xs sm:text-sm"
                 required
               >
-                <option value="">Seleccione su obra social</option>
-                <option value="OSDE">OSDE</option>
-                <option value="Swiss Medical">Swiss Medical</option>
-                <option value="Galeno">Galeno</option>
+                <option value="">
+                  {loadingObras
+                    ? "Cargando obras sociales..."
+                    : "Seleccione su obra social"}
+                </option>
+                {obras.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.nombre}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
 
+          {error && (
+            <p className="mt-2 text-sm text-red-600">
+              {error}
+            </p>
+          )}
+
           <button
             type="submit"
-            disabled={!isValid}
+            disabled={!isValid || loadingSubmit}
             className={`mt-4 w-full py-2 rounded-md font-medium text-white text-sm ${
-              isValid
+              isValid && !loadingSubmit
                 ? "bg-blue-600 hover:bg-blue-700"
                 : "bg-gray-400 cursor-not-allowed"
             }`}
           >
-            Continuar
+            {loadingSubmit ? "Enviando..." : "Continuar"}
           </button>
         </form>
-         <div className="mt-6">
+
+        <div className="mt-6">
           <Banner
             icon={<Calendar className="w-5 h-5 text-blue-600" />}
             title="Información importante"
@@ -238,8 +324,9 @@ export default function ReservaForm() {
             ]}
           />
         </div>
-      </div>    
+      </div>
     </section>
   );
 }
+
             

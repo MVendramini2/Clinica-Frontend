@@ -1,10 +1,10 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { MoveLeft, Calendar } from "lucide-react";
 import { Button } from "../components/Button";
 import { Banner } from "../components/Banner";
 
-
+// ===== Constantes de calendario =====
 const MONTHS = [
   "Enero",
   "Febrero",
@@ -19,26 +19,46 @@ const MONTHS = [
   "Noviembre",
   "Diciembre",
 ];
+
 const WEEK = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sab"];
 
 function daysInMonth(year: number, month: number) {
   return new Date(year, month + 1, 0).getDate();
 }
+
 function firstWeekDay(year: number, month: number) {
   return new Date(year, month, 1).getDay();
 }
 
-const handleReturnInicio = () => {
-  const navigate = useNavigate();
-  navigate("/");
-}
+type SlotBackend = {
+  fechaHora: string; // ISO
+};
 
 export default function ReservaPaso2() {
   const navigate = useNavigate();
+  const location = useLocation();
 
+  // 📌 viene del Paso 1 (ReservaForm)
+  const pacienteId = (location.state as { pacienteId?: number } | null)
+    ?.pacienteId;
+
+  useEffect(() => {
+    if (!pacienteId) {
+      navigate("/reservar-cita");
+    }
+  }, [pacienteId, navigate]);
+
+  
   const minSelectableDate = (() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
+    return d;
+  })();
+
+  
+  const maxSelectableDate = (() => {
+    const d = new Date();
+    d.setHours(23, 59, 59, 999);
     d.setDate(d.getDate() + 14);
     return d;
   })();
@@ -52,35 +72,31 @@ export default function ReservaPaso2() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState("");
 
-  const timeSlots = [
-    "08:00",
-    "08:30",
-    "09:00",
-    "10:00",
-    "10:30",
-    "11:00",
-    "11:30",
-    "14:00",
-    "14:30",
-    "15:00",
-    "15:30",
-    "16:00",
-    "16:30",
-    "17:00",
-    "17:30",
-  ];
+  const [availableTimes, setAvailableTimes] = useState<string[]>([]);
+  const [loadingTimes, setLoadingTimes] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
+  
   const totalDays = daysInMonth(view.year, view.month);
   const padStart = firstWeekDay(view.year, view.month);
+
   const cells: (number | null)[] = [
     ...Array(padStart).fill(null),
     ...Array.from({ length: totalDays }, (_, i) => i + 1),
   ];
   while (cells.length % 7 !== 0) cells.push(null);
 
+  const isDisabledDay = (day: number) => {
+    const d = new Date(view.year, view.month, day);
+    // a mitad de día para evitar problemas de zona horaria
+    d.setHours(12, 0, 0, 0);
+    return d < minSelectableDate || d > maxSelectableDate;
+  };
+
   const goPrevMonth = () => {
     setSelectedDate(null);
     setSelectedTime("");
+    setAvailableTimes([]);
     setView((v) =>
       v.month === 0 ? { month: 11, year: v.year - 1 } : { month: v.month - 1, year: v.year }
     );
@@ -89,34 +105,120 @@ export default function ReservaPaso2() {
   const goNextMonth = () => {
     setSelectedDate(null);
     setSelectedTime("");
+    setAvailableTimes([]);
     setView((v) =>
       v.month === 11 ? { month: 0, year: v.year + 1 } : { month: v.month + 1, year: v.year }
     );
   };
 
-  const isBeforeMinDay = (day: number) => {
+  const onSelectDay = (day: number | null) => {
+    if (!day || isDisabledDay(day)) return;
+
     const d = new Date(view.year, view.month, day);
-    d.setHours(23, 59, 59, 999);
-    return d < minSelectableDate;
+    d.setHours(0, 0, 0, 0);
+
+    setSelectedDate(d);
+    setSelectedTime("");
+    setAvailableTimes([]);
+    setError(null);
   };
 
-  const onSelectDay = (day: number | null) => {
-    if (!day || isBeforeMinDay(day)) return;
-    setSelectedDate(new Date(view.year, view.month, day));
-    setSelectedTime("");
-  };
+  
+  useEffect(() => {
+    const fetchDisponibilidad = async (fechaISO: string) => {
+      try {
+        setLoadingTimes(true);
+        setError(null);
+
+        
+        const res = await fetch(
+          `http://localhost:3001/api/disponibilidad?desde=${fechaISO}&hasta=${fechaISO}`
+        );
+        const data = await res.json();
+
+        if (!res.ok) {
+          console.error("Error al obtener disponibilidad:", data);
+          setError("No se pudo cargar la disponibilidad");
+          return;
+        }
+
+       
+        
+
+        
+        const slots: SlotBackend[] = data.slots || [];
+
+        // Convertimos cada ISO a hora LOCAL "HH:MM"
+        const horas = Array.from(
+          new Set(
+            slots.map((s) => {
+              const d = new Date(s.fechaHora);
+              return d.toLocaleTimeString("es-AR", {
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false,
+              });
+            })
+          )
+        ).sort();
+
+        setAvailableTimes(horas);
+      } catch (err) {
+        console.error(err);
+        setError("Error de conexión al cargar horarios");
+      } finally {
+        setLoadingTimes(false);
+      }
+    };
+
+    if (selectedDate) {
+      const fechaISO = selectedDate.toISOString().slice(0, 10); // "YYYY-MM-DD"
+      fetchDisponibilidad(fechaISO);
+    }
+  }, [selectedDate]);
 
   const confirmDisabled = !selectedDate || !selectedTime;
 
-  const handleConfirm = () => {
-    if (confirmDisabled) return;
-    console.log("Reserva:", {
-      fecha: selectedDate?.toISOString().slice(0, 10),
-      hora: selectedTime,
+ const handleConfirm = async () => {
+  if (!selectedDate || !selectedTime || !pacienteId) return;
+
+  // Fecha LOCAL "YYYY-MM-DD"
+  const y = selectedDate.getFullYear();
+  const m = String(selectedDate.getMonth() + 1).padStart(2, "0");
+  const d = String(selectedDate.getDate()).padStart(2, "0");
+  const fechaLocal = `${y}-${m}-${d}`;          // ej. "2025-11-19"
+
+  // Hora seleccionada "HH:MM"
+  const fechaHora = `${fechaLocal}T${selectedTime}:00`; // ej. "2025-11-19T10:00:00"
+
+  try {
+    const res = await fetch("http://localhost:3001/api/citas", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        pacienteId,
+        fechaHora,
+      }),
     });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      console.error("Error al crear cita:", data);
+      alert(data.message || "No se pudo registrar la cita");
+      return;
+    }
+
+    // Quitamos el horario recién reservado de la lista en pantalla
+    setAvailableTimes((prev) => prev.filter((h) => h !== selectedTime));
+
     alert("¡Cita solicitada con éxito! Recibirá un email de confirmación.");
     navigate("/");
-  };
+  } catch (err) {
+    console.error(err);
+    alert("Error de conexión con el servidor");
+  }
+};
 
   return (
     <section className="min-h-screen bg-gray-50">
@@ -125,7 +227,7 @@ export default function ReservaPaso2() {
         <Button
           icon={<MoveLeft className="w-3 h-3" />}
           label="Volver al inicio"
-          parentMethod={handleReturnInicio}
+          parentMethod={() => navigate("/")}
           variant="small"
         />
         <div className="text-center">
@@ -137,7 +239,7 @@ export default function ReservaPaso2() {
 
         {/* Stepper */}
         <div className="mt-3 flex items-center justify-center gap-2">
-          <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold bg-blue-200 text-white-600">
+          <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold bg-blue-200 text-gray-700">
             1
           </div>
           <div className="h-0.5 w-10 bg-blue-200 rounded" />
@@ -163,7 +265,9 @@ export default function ReservaPaso2() {
 
           {/* Calendario */}
           <div className="mt-4">
-            <label className="block text-sm font-medium text-gray-800 mb-2">Seleccionar Fecha</label>
+            <label className="block text-sm font-medium text-gray-800 mb-2">
+              Seleccionar Fecha
+            </label>
 
             <div className="rounded-xl border border-gray-200">
               {/* Header mes */}
@@ -198,7 +302,8 @@ export default function ReservaPaso2() {
               <div className="grid grid-cols-7 gap-1 p-2">
                 {cells.map((day, idx) => {
                   if (day === null) return <div key={idx} />;
-                  const disabled = isBeforeMinDay(day);
+
+                  const disabled = isDisabledDay(day);
                   const isSelected =
                     !!selectedDate &&
                     selectedDate.getFullYear() === view.year &&
@@ -227,8 +332,8 @@ export default function ReservaPaso2() {
 
             {/* Leyenda */}
             <p className="mt-2 text-[11px] text-gray-500">
-              Los turnos están disponibles a partir del{" "}
-              {minSelectableDate.toLocaleDateString("es-AR", {
+              Los turnos están disponibles desde hoy hasta el{" "}
+              {maxSelectableDate.toLocaleDateString("es-AR", {
                 day: "2-digit",
                 month: "long",
                 year: "numeric",
@@ -237,14 +342,29 @@ export default function ReservaPaso2() {
             </p>
           </div>
 
-          {/* Horarios */}
+          {/* Horarios (desde backend) */}
           {selectedDate && (
             <div className="mt-4">
               <label className="block text-sm font-medium text-gray-800 mb-2">
                 Horarios Disponibles
               </label>
+
+              {loadingTimes && (
+                <p className="text-sm text-gray-500 mb-2">Cargando horarios...</p>
+              )}
+
+              {error && (
+                <p className="text-sm text-red-600 mb-2">{error}</p>
+              )}
+
+              {!loadingTimes && !error && availableTimes.length === 0 && (
+                <p className="text-sm text-gray-500 mb-2">
+                  No hay horarios disponibles para esta fecha.
+                </p>
+              )}
+
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {timeSlots.map((t) => {
+                {availableTimes.map((t) => {
                   const active = t === selectedTime;
                   return (
                     <button
@@ -288,20 +408,22 @@ export default function ReservaPaso2() {
             </button>
           </div>
         </div>
+
         <div className="mt-6">
-            <Banner
-                icon={<Calendar className="w-5 h-5 text-blue-600" />}
-                title="Información importante"
-                items={[
-                    "Recibirá un email de confirmación una vez enviada la solicitud",
-                    "La cita será confirmada por nuestro personal médico",
-                    "Puede cancelar o reprogramar con 24hs de anticipación",
-                    "Traiga su documento de identidad y credencial de obra social",
-                    ]}
-                  />
-            </div>
+          <Banner
+            icon={<Calendar className="w-5 h-5 text-blue-600" />}
+            title="Información importante"
+            items={[
+              "Recibirá un email de confirmación una vez enviada la solicitud",
+              "La cita será confirmada por nuestro personal médico",
+              "Puede cancelar o reprogramar con 24hs de anticipación",
+              "Traiga documento de identidad y credencial de obra social",
+            ]}
+          />
+        </div>
       </div>
     </section>
   );
 }
+
 
