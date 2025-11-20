@@ -23,11 +23,11 @@ import { Button } from "../components/Button";
 type Estado = "SOLICITADA" | "CONFIRMADA";
 
 type Cita = {
-  id: number; // ahora coincide con el backend (id numérico)
+  id: number; 
   paciente: string;
   email: string;
   telefono: string;
-  fechaISO: string; // Ej: "2025-01-09T09:00:00"
+  fechaISO: string; 
   obraSocial: string;
   estado: Estado;
 };
