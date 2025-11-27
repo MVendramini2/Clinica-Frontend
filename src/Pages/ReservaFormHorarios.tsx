@@ -182,14 +182,14 @@ export default function ReservaPaso2() {
  const handleConfirm = async () => {
   if (!selectedDate || !selectedTime || !pacienteId) return;
 
-  // Fecha LOCAL "YYYY-MM-DD"
+  
   const y = selectedDate.getFullYear();
   const m = String(selectedDate.getMonth() + 1).padStart(2, "0");
   const d = String(selectedDate.getDate()).padStart(2, "0");
-  const fechaLocal = `${y}-${m}-${d}`;          // ej. "2025-11-19"
+  const fechaLocal = `${y}-${m}-${d}`;          
 
-  // Hora seleccionada "HH:MM"
-  const fechaHora = `${fechaLocal}T${selectedTime}:00`; // ej. "2025-11-19T10:00:00"
+  
+  const fechaHora = `${fechaLocal}T${selectedTime}:00`; 
 
   try {
     const res = await fetch("http://localhost:3001/api/citas", {
@@ -209,7 +209,7 @@ export default function ReservaPaso2() {
       return;
     }
 
-    // Quitamos el horario recién reservado de la lista en pantalla
+    
     setAvailableTimes((prev) => prev.filter((h) => h !== selectedTime));
 
     alert("¡Cita solicitada con éxito! Recibirá un email de confirmación.");

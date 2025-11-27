@@ -79,7 +79,7 @@ export default function AreaMedica() {
             onSubmit={handleSubmit}
             className="bg-white p-6 rounded-xl shadow-md w-full max-w-md border border-gray-200"
           >
-            {/* Icono dentro de círculo */}
+            
             <div className="flex justify-center mb-4">
               <div className="bg-blue-100 p-3 rounded-full">
                 <Lock className="w-6 h-6 text-blue-600" />
@@ -161,7 +161,7 @@ export default function AreaMedica() {
           </form>
         </div>
 
-        {/* Banner de credenciales (debajo y con el mismo ancho del card) */}
+        {/* Banner de credenciales */}
         <div className="max-w-md mx-auto text-center mb-10">
           <div className="mt-6 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
             <h3 className="font-semibold mb-2">Credenciales de Demostración</h3>

@@ -34,7 +34,7 @@ type Cita = {
 
 type ObraSocial = { id: number; nombre: string };
 
-/* ======================= Helpers fecha ===================== */
+
 const fmtFecha = (iso: string) => {
   const d = new Date(iso);
   return d.toLocaleDateString("es-AR", {
@@ -48,7 +48,7 @@ const fmtFecha = (iso: string) => {
 const esFutura = (iso: string) => {
   const d = new Date(iso);
   const now = new Date();
-  return d.getTime() >= now.getTime(); // true si todavía no sucedió
+  return d.getTime() >= now.getTime(); 
 };
 
 const fmtHora = (iso: string) =>
@@ -67,7 +67,7 @@ const esHoy = (iso: string) => {
   );
 };
 
-/* ==================== UI internos compactos =================== */
+
 function StatCard({
   title,
   value,
@@ -111,7 +111,7 @@ function Tag({
   );
 }
 
-/* ========================== Página ========================== */
+
 export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState<"citas" | "obras">("citas");
   const [citas, setCitas] = useState<Cita[]>([]);
@@ -136,7 +136,7 @@ export default function AdminPanel() {
     navigate("/");
   };
 
-  /* ================ Cargar datos del backend ================= */
+  
 
   const fetchCitas = async () => {
     try {
@@ -187,7 +187,7 @@ export default function AdminPanel() {
     fetchObras();
   }, []);
 
-  /* ================== Métricas y filtros =================== */
+  
   const total = citas.length;
   const solicitadas = citas.filter((c) => c.estado === "SOLICITADA").length;
   const confirmadas = citas.filter((c) => c.estado === "CONFIRMADA").length;
@@ -224,7 +224,7 @@ export default function AdminPanel() {
     setCurrentPage(1);
   }, [q, filtroEstado, citas]);
 
-  /* ======================= Acciones citas ======================= */
+  
 
   const confirmarCita = async (id: number) => {
     try {
@@ -297,7 +297,7 @@ export default function AdminPanel() {
     }
   };
 
-  /* ================== Obras Sociales (CRUD) ================== */
+  
 
   const guardarObra = async () => {
     const nombre = formObra.nombre.trim();
@@ -395,7 +395,7 @@ export default function AdminPanel() {
     }
   };
 
-  /* ========================= Render ========================== */
+  
 
   return (
     <section className="min-h-screen bg-gray-50">
@@ -442,7 +442,7 @@ export default function AdminPanel() {
           />
         </div>
 
-        {/* Tabs pildora */}
+        
         <div className="bg-white border border-gray-200 rounded-full p-0.5 shadow-sm flex items-center">
           <button
             onClick={() => setActiveTab("citas")}

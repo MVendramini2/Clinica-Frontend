@@ -17,7 +17,7 @@ export default function ReservaForm() {
     apellido: "",
     email: "",
     telefono: "",
-    obraSocialId: "", // ID de la obra social (string para el select, luego lo convertimos a number)
+    obraSocialId: "", 
   });
 
   const [obras, setObras] = useState<ObraSocial[]>([]);
@@ -131,7 +131,7 @@ export default function ReservaForm() {
           </p>
         </div>
 
-        {/* Stepper: paso 1 activo */}
+        
         <div className="mt-3 flex items-center justify-center gap-2">
           <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold bg-blue-600 text-white">
             1
